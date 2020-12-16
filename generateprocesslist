@@ -1,15 +1,15 @@
 #!/bin/bash
 ################################################################################
 #
-#   Count selected patterns from the processlist
-#   This program is currently intended to be a fully developed program. It is
-#   a small utility or shortcut to the functionality it has.
+#   Count selected patterns from the process list (ps -ef)
+#   This program is not currently intended to be a fully developed program. It
+#   is a small utility or shortcut to the functionality it has.
 #
 #   Input: Nothing
 #       For now edit this file instead.
 #
 #   Output:
-#       1. File with running processes (ps -ef)
+#       1. File with running processes (Easily disabled)
 #       2. File with counted patterns from the process list.
 #
 #   Requirements: pattern_count.sh
