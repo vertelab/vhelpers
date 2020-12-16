@@ -1,0 +1,54 @@
+#!/bin/bash
+################################################################################
+#
+#   Count selected patterns from the processlist
+#   This program is currently intended to be a fully developed program. It is
+#   a small utility or shortcut to the functionality it has.
+#
+#   Input: Nothing
+#       For now edit this file instead.
+#
+#   Output:
+#       1. File with running processes (ps -ef)
+#       2. File with counted patterns from the process list.
+#
+#   Requirements: pattern_count.sh
+#   pattern_count.sh is used to count patterns from the process list. 
+#       wget https://raw.githubusercontent.com/srund/patterncount/master/pattern_count.sh
+#
+#   Configuration: Edit patterns and output files under the section
+#   'Configuration'.
+#      PROCESSLIST  : Output file for ps -ef
+#      PATTERNCOUNT : Output file for pattern_count.sh
+#      PATTERNS     : Comma separated list of patterns to forward to
+#                     pattern_count.sh
+#
+################################################################################
+if [ $# -ne 0 ]; then
+	echo "Run without flags and parameters to generate a list of processes (ps -ef) and a count of a subset of them."
+	exit 1
+fi
+
+# Setup
+SCRIPT=$(readlink -f $0)	# Full path to (and including) the script file
+SCRIPTPATH=$(dirname "$SCRIPT") # Full path to (and excluding) the script file
+RAW_PROCESS_LIST=$(mktemp)
+
+## Configuration ################################################################
+
+PROCESSLIST="$SCRIPTPATH/processlist_$(date +%Y%m%d).txt"
+PATTERNCOUNT="$SCRIPTPATH/processlist_$(date +%Y%m%d)_count.txt"
+PATTERNS="kworker,ksoftirqd,migration,watchdog,apache2,postgresql"
+
+## Do stuff #####################################################################
+ps -ef > $RAW_PROCESS_LIST
+
+bash pattern_count.sh -p $PATTERNS\
+ $RAW_PROCESS_LIST\
+ -o $PATTERNCOUNT
+
+cp $RAW_PROCESS_LIST $PROCESSLIST # Remove to remove gen. of process list file.
+
+## Cleanup ######################################################################
+rm $RAW_PROCESS_LIST
+exit 0
