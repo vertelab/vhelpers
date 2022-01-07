@@ -1,13 +1,24 @@
 #!/bin/bash
-
+################################################################################
 function synopsis {
     echo "Print the difference between installed Pip packages between two machines."
 }
 
 function usage {
     echo "Usage: $0 HOST1 [HOST2]"
+    echo "Usage: $0 [option ... ] [HOST1] [HOST2]"
+    echo "-h|--host|--host1"
+    echo "-p|--port|--port1"
+    echo "-h|--user|--user1"
+    echo "    Set host|port|user for remote machine"
+    echo "--host2"
+    echo "--port2"
+    echo "--user2"
+    echo "    Set host|port|user for second remote machine. If not set local \
+machine is used"
 }
-
+################################################################################
+# Script parameters
 HOST1=""
 PORT1=22
 USER1=$(whoami)
@@ -15,11 +26,11 @@ USER1=$(whoami)
 HOST2=""
 PORT2=22
 USER2=$(whoami)
-
-##
+################################################################################
+# Parse arguments
 
 SHORT_ARGS='h:p:u:'
-LONG_ARGS='host:,port:,user:,host1:,port1:,user1:,host2:,port2:,user2:' # Comma separated
+LONG_ARGS='help,host:,port:,user:,host1:,port1:,user1:,host2:,port2:,user2:' # Comma separated
 
 # CONTINUE FROM HERE!
 # https://www.unix.com/unix-for-beginners-questions-and-answers/270738-eval-set-more.html
@@ -71,6 +82,13 @@ do
             shift 2 #
             continue
             ;;
+        '--help')
+            synopsis
+            usage
+            exit
+            #shift
+            #continue
+            ;;
         '--') # End of flagged params
             shift
             break # Break while loop
@@ -107,6 +125,7 @@ fi
 # echo $PORT2
 # echo $USER2
 
+################################################################################
 ## Helper functions
 # Host, port, user
 function getpiplist {
@@ -165,5 +184,5 @@ rm $PIPBOTH
 rm $PIPEQUAL
 rm $PIPDIFF
 
-##
+################################################################################
 exit 0
