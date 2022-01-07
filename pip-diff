@@ -1,0 +1,169 @@
+#!/bin/bash
+
+function synopsis {
+    echo "Print the difference between installed Pip packages between two machines."
+}
+
+function usage {
+    echo "Usage: $0 HOST1 [HOST2]"
+}
+
+HOST1=""
+PORT1=22
+USER1=$(whoami)
+
+HOST2=""
+PORT2=22
+USER2=$(whoami)
+
+##
+
+SHORT_ARGS='h:p:u:'
+LONG_ARGS='host:,port:,user:,host1:,port1:,user1:,host2:,port2:,user2:' # Comma separated
+
+# CONTINUE FROM HERE!
+# https://www.unix.com/unix-for-beginners-questions-and-answers/270738-eval-set-more.html
+# The post from corona688 pretty much explain what the example is doing.
+
+# We put the parsed options in a variable for now since we want to check getopts
+# return value. Using getopt together with set would have removed the return val
+options=$(getopt -o "$SHORT_ARGS" --long "$LONG_ARGS" -- "$@")
+
+if [ $? -ne 0 ]; then
+    echo 'getopt could not parse input. Terminating...' 1>&2
+    usage
+    exit 1
+fi
+eval set -- "$options" # Changing positional params to getopt filtered version of them.
+unset options # We don't need the options any more.
+
+# consume 1-2 positional params as flags at the time until there are no more.
+while true
+do
+    case "$1" in
+        '-h' | '--host' | '--host1' )
+            HOST1="$2"
+            shift 2
+            continue
+            ;;
+        '-p' | '--port' | '--port1')
+            PORT1="$2"
+            shift 2 #
+            continue
+            ;;
+        '-u' | '--user' | '--user1')
+            USER1="$2"
+            shift 2 #
+            continue
+            ;;
+        '--host2' )
+            HOST2="$2"
+            shift 2
+            continue
+            ;;
+        '--port2')
+            PORT2="$2"
+            shift 2 #
+            continue
+            ;;
+        '--user2')
+            USER2="$2"
+            shift 2 #
+            continue
+            ;;
+        '--') # End of flagged params
+            shift
+            break # Break while loop
+            ;; # Put here because it doesn't feel right to remove it
+        *)
+            echo "We shouldn't get here. Terminating ..." >&2
+            exit 1
+    esac
+done
+# echo "Positional parameters:"
+# for arg in "$@"
+# do
+#     echo $arg
+# done
+if [ -z "$HOST1" ] ; then
+    if [ -n "$1" ] ; then
+        HOST1=$1
+        shift   # Consume the arg to enable HOST2 to be fetched as $1 for nicer
+                # behavior if HOST1 is set with a flag instead of pos.param
+    else
+        echo "HOST1 must be defined. Exiting ..." 1>&2
+        usage 1>&2
+        exit 1
+    fi
+fi
+if [ -z "$HOST2" ] && [ -n "$1" ] ; then
+    HOST2=$1
+fi
+
+# echo $HOST1
+# echo $PORT1
+# echo $USER1
+# echo $HOST2
+# echo $PORT2
+# echo $USER2
+
+## Helper functions
+# Host, port, user
+function getpiplist {
+    ssh $3@$1 -p $2 'pip list | tail -n +3' | sort | perl -pe 's/\s+(?=[0-9])/ == /g'
+}
+
+## Do the needful
+PIPLIST1=$(mktemp)
+PIPLIST2=$(mktemp)
+
+getpiplist $HOST1 $PORT1 $USER1 > $PIPLIST1
+if [ -n "$HOST2" ] ; then
+    getpiplist $HOST2 $PORT2 $USER2 > $PIPLIST2
+else
+    pip list | tail -n +3 | sort | perl -pe 's/\s+(?=[0-9])/ == /g' > $PIPLIST2
+fi
+
+# Some test things:
+echo ">>>>> Unique to HOST1: '$HOST1'"
+comm -23 <(cut -f 1 -d ' ' $PIPLIST1) <(cut -f 1 -d ' ' $PIPLIST2)
+
+echo ">>>>> Unique to HOST1: '$HOST2' (local machine if empty)"
+comm -13 <(cut -f 1 -d ' ' $PIPLIST1) <(cut -f 1 -d ' ' $PIPLIST2)
+
+#echo ">>>>> On both:"
+PIPBOTH=$(mktemp)
+comm -12 <(cut -f 1 -d ' ' $PIPLIST1) <(cut -f 1 -d ' ' $PIPLIST2) > $PIPBOTH
+
+# echo ">>> Difference check"
+PIPEQUAL=$(mktemp)
+PIPDIFF=$(mktemp)
+
+while read row ; do
+    res1=$(grep -m 1 $row $PIPLIST1)
+    res2=$(grep -m 1 $row $PIPLIST2)
+    #echo "--------------------"
+    #echo $res1
+    #echo $res2
+    #echo "--------------------"
+    if [ "$res1" = "$res2" ]; then
+        echo "$row $(echo $res1 | cut -f 3 -d ' ')" >> $PIPEQUAL
+    else
+        echo "$row $(echo $res1 | cut -f 3 -d ' ') $(echo $res2 | cut -f 3 -d ' ')" >> $PIPDIFF
+    fi
+done < $PIPBOTH
+echo ">>>>> Same version on both:"
+cat $PIPEQUAL
+echo ">>>>> Different versions"
+cat $PIPDIFF
+
+
+## Cleanup
+rm $PIPLIST1
+rm $PIPLIST2
+rm $PIPBOTH
+rm $PIPEQUAL
+rm $PIPDIFF
+
+##
+exit 0
