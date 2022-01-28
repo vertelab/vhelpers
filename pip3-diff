@@ -23,7 +23,7 @@ HOST1=""
 PORT1=22
 USER1=$(whoami)
 
-HOST2=$2
+HOST2=""
 PORT2=22
 USER2=$(whoami)
 ################################################################################
@@ -127,12 +127,12 @@ fi
 
 ################################################################################
 ## Helper functions
-# Input: host, port, user
+# Input: Host, port, user
 function getpiplist {
     ssh $3@$1 -p $2 'pip3 list | tail -n +3' | sort | perl -pe 's/\s+(?=[0-9])/ == /g'
 }
 
-##
+## Do the needful
 PIPLIST1=$(mktemp)
 PIPLIST2=$(mktemp)
 
@@ -144,7 +144,7 @@ else
 fi
 
 # Some test things:
-echo ">>>>> Unique to HOST1: $HOST1"
+echo ">>>>> Unique to HOST1: '$HOST1'"
 comm -23 <(cut -f 1 -d ' ' $PIPLIST1) <(cut -f 1 -d ' ' $PIPLIST2)
 
 echo ">>>>> Unique to HOST2: '$HOST2' (local machine if empty)"

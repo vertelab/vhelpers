@@ -127,7 +127,7 @@ fi
 
 ################################################################################
 ## Helper functions
-# Host, port, user
+# Input: Host, port, user
 function getpiplist {
     ssh $3@$1 -p $2 'pip list | tail -n +3' | sort | perl -pe 's/\s+(?=[0-9])/ == /g'
 }
@@ -147,7 +147,7 @@ fi
 echo ">>>>> Unique to HOST1: '$HOST1'"
 comm -23 <(cut -f 1 -d ' ' $PIPLIST1) <(cut -f 1 -d ' ' $PIPLIST2)
 
-echo ">>>>> Unique to HOST1: '$HOST2' (local machine if empty)"
+echo ">>>>> Unique to HOST2: '$HOST2' (local machine if empty)"
 comm -13 <(cut -f 1 -d ' ' $PIPLIST1) <(cut -f 1 -d ' ' $PIPLIST2)
 
 #echo ">>>>> On both:"
