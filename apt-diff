@@ -1,0 +1,189 @@
+#!/bin/bash
+################################################################################
+function synopsis {
+    echo "Print the difference between installed apt packages between two machines."
+    echo "The machines are assumed to be reasonably similar. IE same arch and OS"
+}
+
+function usage {
+    echo "Usage: $0 HOST1 [HOST2]"
+    echo "Usage: $0 [option ... ] [HOST1] [HOST2]"
+    echo "-h|--host|--host1"
+    echo "-p|--port|--port1"
+    echo "-h|--user|--user1"
+    echo "    Set host|port|user for remote machine"
+    echo "--host2"
+    echo "--port2"
+    echo "--user2"
+    echo "    Set host|port|user for second remote machine. If not set local \
+machine is used"
+}
+################################################################################
+# Script parameters
+HOST1=""
+PORT1=22
+USER1=$(whoami)
+
+HOST2=""
+PORT2=22
+USER2=$(whoami)
+################################################################################
+# Parse arguments
+
+SHORT_ARGS='h:p:u:'
+LONG_ARGS='help,host:,port:,user:,host1:,port1:,user1:,host2:,port2:,user2:' # Comma separated
+
+# CONTINUE FROM HERE!
+# https://www.unix.com/unix-for-beginners-questions-and-answers/270738-eval-set-more.html
+# The post from corona688 pretty much explain what the example is doing.
+
+# We put the parsed options in a variable for now since we want to check getopts
+# return value. Using getopt together with set would have removed the return val
+options=$(getopt -o "$SHORT_ARGS" --long "$LONG_ARGS" -- "$@")
+
+if [ $? -ne 0 ]; then
+    echo 'getopt could not parse input. Terminating...' 1>&2
+    usage
+    exit 1
+fi
+eval set -- "$options" # Changing positional params to getopt filtered version of them.
+unset options # We don't need the options any more.
+
+# consume 1-2 positional params as flags at the time until there are no more.
+while true
+do
+    case "$1" in
+        '-h' | '--host' | '--host1' )
+            HOST1="$2"
+            shift 2
+            continue
+            ;;
+        '-p' | '--port' | '--port1')
+            PORT1="$2"
+            shift 2 #
+            continue
+            ;;
+        '-u' | '--user' | '--user1')
+            USER1="$2"
+            shift 2 #
+            continue
+            ;;
+        '--host2' )
+            HOST2="$2"
+            shift 2
+            continue
+            ;;
+        '--port2')
+            PORT2="$2"
+            shift 2 #
+            continue
+            ;;
+        '--user2')
+            USER2="$2"
+            shift 2 #
+            continue
+            ;;
+        '--help')
+            synopsis
+            usage
+            exit
+            #shift
+            #continue
+            ;;
+        '--') # End of flagged params
+            shift
+            break # Break while loop
+            ;; # Put here because it doesn't feel right to remove it
+        *)
+            echo "We shouldn't get here. Terminating ..." >&2
+            exit 1
+    esac
+done
+# echo "Positional parameters:"
+# for arg in "$@"
+# do
+#     echo $arg
+# done
+if [ -z "$HOST1" ] ; then
+    if [ -n "$1" ] ; then
+        HOST1=$1
+        shift   # Consume the arg to enable HOST2 to be fetched as $1 for nicer
+                # behavior if HOST1 is set with a flag instead of pos.param
+    else
+        echo "HOST1 must be defined. Exiting ..." 1>&2
+        usage 1>&2
+        exit 1
+    fi
+fi
+if [ -z "$HOST2" ] && [ -n "$1" ] ; then
+    HOST2=$1
+fi
+
+# echo $HOST1
+# echo $PORT1
+# echo $USER1
+# echo $HOST2
+# echo $PORT2
+# echo $USER2
+
+################################################################################
+## Helper functions
+# Input: Host, port, user
+function getaptlist {
+    ssh $3@$1 -p $2 'apt list --installed 2>/dev/null | tail -n +1' | sed 's|/| |g' | sort -t ' ' -k 1,1
+}
+
+## Do the needful
+APTLIST1=$(mktemp)
+APTLIST2=$(mktemp)
+
+getaptlist $HOST1 $PORT1 $USER1 > $APTLIST1
+if [ -n "$HOST2" ] ; then
+    getaptlist $HOST2 $PORT2 $USER2 > $APTLIST2
+else
+    apt list --installed 2>/dev/null | tail -n +1  | sed 's|/| |g' | sort -t ' ' -k 1,1 > $APTLIST2
+fi
+
+# Some test things:
+echo ">>>>> Unique to HOST1: '$HOST1'"
+comm -23 <(cut -f 1 -d ' ' $APTLIST1) <(cut -f 1 -d ' ' $APTLIST2)
+
+echo ">>>>> Unique to HOST2: '$HOST2' (local machine if empty)"
+comm -13 <(cut -f 1 -d ' ' $APTLIST1) <(cut -f 1 -d ' ' $APTLIST2)
+
+#echo ">>>>> On both:"
+APTBOTH=$(mktemp)
+comm -12 <(cut -f 1 -d ' ' $APTLIST1) <(cut -f 1 -d ' ' $APTLIST2) > $APTBOTH
+
+# echo ">>> Difference check"
+APTEQUAL=$(mktemp)
+APTDIFF=$(mktemp)
+
+while read row ; do
+    res1=$(grep -m 1 "$row" $APTLIST1)
+    res2=$(grep -m 1 "$row" $APTLIST2)
+    # echo "--------------------"
+    # echo $res1
+    # echo $res2
+    # echo "--------------------"
+    if [ "$res1" = "$res2" ]; then
+        echo "$row $(echo $res1 | cut -f 3 -d ' ')" >> $APTEQUAL
+    else
+        echo "$row $(echo $res1 | cut -f 3 -d ' ') $(echo $res2 | cut -f 3 -d ' ')" >> $APTDIFF
+    fi
+done < $APTBOTH
+echo ">>>>> Same version on both:"
+cat $APTEQUAL
+echo ">>>>> Different versions"
+cat $APTDIFF
+
+
+## Cleanup
+rm $APTLIST1
+rm $APTLIST2
+rm $APTBOTH
+rm $APTEQUAL
+rm $APTDIFF
+
+################################################################################
+exit 0
