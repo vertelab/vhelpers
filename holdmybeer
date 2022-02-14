@@ -20,7 +20,7 @@ elif [ $# -eq 2 ] && [ $1 == '-i' ]; then # Invert mode
 	# Count found files
 	result=$(ls -d $2* | grep -E '\.orig\.sha256\.[a-f0-9]{64}' | wc -l)
 	if [ $result -ne 1 ]; then
-		echo "Found $result number of sha'd files. Expected 1. Exiting ..." 1>&2
+		echo "Found $result sha'd files. Expected 1. Exiting ..." 1>&2
 		exit 1
 	fi
 	# else
