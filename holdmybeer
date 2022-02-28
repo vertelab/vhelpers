@@ -12,7 +12,7 @@ if [ $# -eq 1 ] ; then # Normal mode
 		echo "Something went wrong during copy." 1>&2
 		exit 1
 	else
-		echo "OK!"
+		echo "Copy made."
 		exit 0
 	fi
 elif [ $# -eq 2 ] && [ $1 == '-i' ]; then # Invert mode
@@ -20,7 +20,9 @@ elif [ $# -eq 2 ] && [ $1 == '-i' ]; then # Invert mode
 	# Count found files
 	result=$(ls -d $2* | grep -E '\.orig\.sha256\.[a-f0-9]{64}' | wc -l)
 	if [ $result -ne 1 ]; then
-		echo "Found $result sha'd files. Expected 1. Exiting ..." 1>&2
+		echo "Found $result sha'd files. Expected 1." 1>&2
+		echo "Resolve this message by making sure there is only sha'd file." 1>&2
+		echo "Exiting ..." 1>&2
 		exit 1
 	fi
 	# else
