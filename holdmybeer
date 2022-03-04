@@ -26,8 +26,19 @@ elif [ $# -eq 2 ] && [ $1 == '-i' ]; then # Invert mode
 		exit 1
 	fi
 	# else
-	echo "Moving: " $(ls $2* | grep -E '\.orig\.sha256\.[a-f0-9]{64}')
-	mv $(ls $2* | grep -E '\.orig\.sha256\.[a-f0-9]{64}') $2
+
+	filecopy=$(ls $2* | grep -E '\.orig\.sha256\.[a-f0-9]{64}')
+	checksum_exp=$(echo $filecopy | grep -oE '[a-f0-9]{64}')
+	checksum_cur=$(sha256sum $filecopy | cut -f 1 -d ' ')
+
+	if [ "$checksum_cur" != "$checksum_exp" ]; then
+		echo "Checksum of copy doesn't match the expected one." 1>&2
+		echo "Resolve by making the checksum equal to the sum in the file name." 1>&2
+		echo "Exiting ..." 1>&2
+		exit 1
+	fi
+	echo "Moving: " $filecopy
+	mv $filecopy $2
 	echo "Done!"
 else
 	help
