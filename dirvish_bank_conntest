@@ -32,7 +32,7 @@ fi
 ## -------------------------------------------------------------------------- ##
 ## Doing the needful
 echo "Connection test for bank $BANK"
-for V in $(find $BANK -maxdepth 1 -type d | sort ) ; do
+for V in $(find $BANK -mindepth 1 -maxdepth 1 -type d | sort ) ; do
     printf "Vault %-10s: " $(basename $V)
     dirvish_conntest $V
 done
