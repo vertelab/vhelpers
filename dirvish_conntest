@@ -50,15 +50,15 @@ fi
 
 if [ $UID -ne 0 ] ; then
     echo -e "${Y}Warning:${U} Not running as root as Dirvish probably does." 1>&2
+    usage 1>&2
 fi
 
 if ! $(ping -c 1 -W 5 $CLIENT > /dev/null); then
-    echo -e "${R}Error:${U} Failure to ping $CLIENT" 1>&2
-    usage 1>&2
+    echo -e "${R}Fail:${U} Failure to ping $CLIENT"
     exit 1
 fi
 if ! $(ssh $CLIENT -p $PORT -o 'BatchMode yes' -o 'ConnectTimeout 5' exit); then
-    echo -e "${R}Error:${U} Couldn't connect to $CLIENT on port $PORT as $(whoami)" 1>&2
+    echo -e "${R}Fail:${U} Couldn't connect to $CLIENT on port $PORT as $(whoami)"
     exit 1
 fi
 

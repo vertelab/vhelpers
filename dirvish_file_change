@@ -36,9 +36,8 @@ if [ ! -f "$VAULT/dirvish/default.conf" ] ; then
 fi
 
 if [ $UID -ne 0 ] ; then
-    warn "This script will probably work better if run as root."
+    warn "Not running as root as Dirvish probably does."
     usage 1>&2
-    exit 8
 fi
 
 ## -------------------------------------------------------------------------- ##
