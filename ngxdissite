@@ -1,0 +1,64 @@
+#!/bin/bash
+# Small nginx utility replicate a2ensite/a2dissite from Apache2
+
+## -------------------------------------------------------------------------- ##
+## Helper definitions
+
+# Colors for prettier print
+U='\033[0;0m'
+R='\033[0;31m'
+Y='\033[1;33m'
+G='\033[0;32m'
+B='\033[0;34m'
+
+# Print Messages
+function p_error {
+	echo -e "${E}Error:${U} $1" 1>&2
+}
+function p_warn {
+        echo -e "${E}Error:${U} $1" 1>&2
+}
+function p_info {
+        echo -e "${E}Info:${U} $1"
+}
+
+#function trap_err {
+#	p_error "Command at line $1 failed."
+#}
+#trap 'trap_err $LINENO' ERR
+
+## -------------------------------------------------------------------------- ##
+## Program control Definitions
+
+INPUT="$1"
+CONFFILE=""
+
+ENROOT="/etc/nginx/sites-enabled"
+AVROOT="$(dirname $ENROOT)/sites-available"
+
+## -------------------------------------------------------------------------- ##
+
+# Root test
+if [ $UID -ne 0 ] ; then
+	p_error "Command not run as root. Exiting"
+	exit 1
+fi
+
+# Sanitiy checks:
+if [ -f "$ENROOT/$INPUT" ] ; then
+        CONFFILE="$INPUT"
+elif [ -f "$ENROOT$INPUT.conf" ] ; then
+        CONFFILE="$INPUT.conf"
+else
+        p_error "File '$INPUT' or '$INPUT.conf' not found in $ENROOT."\
+" No operation done. Exiting ..."
+        exit 1
+fi
+
+# Do the needful
+rm $ENROOT/$INPUT
+
+p_info "Symlink from $AVROOT/$INPUT from $ENROOT/$INPUT removed."
+p_info "Restart nginx for the change to take effect. Eg: sudo service nginx restart"
+
+exit 0
