@@ -8,7 +8,9 @@ Recommended to run as root.
 import subprocess
 import sys
 
-CMD = "lsof | grep -i '(deleted)'"
+CMD = "lsof | grep -i '(deleted)'" # Get all deleted files.
+
+
 def sizeofdeletedfiles():
     '''
     Returns the size of deleted but not removed file or lsof return code if
@@ -18,11 +20,12 @@ def sizeofdeletedfiles():
     if res.returncode:
         return res.returncode
     resrows = res.stdout.decode('utf-8').split("\n")
-    fsize = ( int(r.split()[-3]) for r in resrows if r) # Negative index since
+    fsize = (int(r.split()[-3]) for r in resrows if r)  # Negative index since
                                                         # not all row-column
                                                         # cells are populated in
                                                         # col 3 and 4
     return sum(fsize)
+
 
 if __name__ == "__main__":
     res = sizeofdeletedfiles()

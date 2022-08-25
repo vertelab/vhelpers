@@ -1,0 +1,145 @@
+#!/bin/bash
+# Add a single domain to Marge.
+#
+# INPUT : DOMAIN
+#
+# OUTPUT:
+#   LE: Certificates for smtp.DOMAIN and imap.DOMAIN
+#       Concatenated PEM-file for postfix
+#   PF: Add Concatenated PEM-file to postfix DB-file and recompile it.
+#   (TODO) DC: Add LE-certs to Dovecot
+#
+#
+## Postfix SNI
+#   Postfix support SNI - or presenting certificates depending on the hostname
+#   the connecting client use.
+#   The private key and cert and optionally the chain need to be put into a
+#   single file in the order : privkey, cert, chain.
+#       IE : echo privkey.pem > my.pem; echo cert.pem >> my.pem
+#   The an SNI-file need to created. This is straightforward according to the
+#   documentation. Just add a row to the SNI-file:
+#      my.domain.com /path/to/my.pem
+#   and make sure the file is used by
+#   Wildcards should be supported. Then compile the db with:
+#      postmap -F /path/to/my.pem
+#
+## Dovecot SNI
+#   Dovecot has supported SNI for longer than Postfix. Just add records to the
+#   /etc/dovecot/10-ssl.conf file:
+#       local_name imap.domain.com {
+#         ssl_cert = </etc/letsencrypt/live/my.domain.com/fullchain.pem
+#         ssl_key = </etc/letsencrypt/live/my.domain.com/privkey.pem
+#       }
+
+
+INPUT=$1
+DOMAIN_SMTP="smtp.$INPUT"
+DOMAIN_IMAP="imap.$INPUT"
+
+POSTFIX_CONF_DIR="/etc/postfix"
+POSTFIX_PEM_DIR="/etc/postfix/postfix_pem"
+POSTFIX_PEM_NAME="" # Set later
+POSTFIX_SNI_MAP="/etc/postfix/sni.map"
+
+DOMAINSELF=marge.vertel.se #"$(hostname -f)"
+IPSELF="$(dig +short $DOMAINSELF)"
+
+LE_CONF_PREFIX="/etc/letsencrypt"
+LE_CERT_BASE_DIR="$LE_CONF_PREFIX"/live
+
+
+## -------------------------------------------------------------------------- ##
+## Helper definitions
+
+# Colors for prettier print
+U='\033[0;0m'
+R='\033[0;31m'
+Y='\033[1;33m'
+G='\033[0;32m'
+B='\033[0;34m'
+
+# Print Messages
+function p_error {
+	echo -e "${R}Error:${U} $1" 1>&2
+}
+function p_warn {
+        echo -e "${Y}Warning:${U} $1" 1>&2
+}
+function p_info {
+        echo -e "${G}Info:${U} $1"
+}
+function test_smtp_domain {
+    IPSMTP="$(dig +short $DOMAIN_SMTP | grep -E '^[0-9]{1,3}')"
+    if [ "$IPSELF" != "$IPSMTP" ] ; then
+        p_error "Own IP '$IPSELF' not equal to '$IPSMTP'"
+        exit 1
+    fi
+    return 0
+}
+function test_imap_domain {
+    IPIMAP="$(dig +short $DOMAIN_IMAP | grep -E '^[0-9]{1,3}')"
+    if [ "$IPSELF" != "$IPIMAP" ] ; then
+        p_error "Own IP '$IPSELF' not equal to '$IPIMAP'"
+        exit 1
+    fi
+    return 0
+}
+
+#function trap_err {
+#	p_error "Command at line $1 failed."
+#}
+#trap 'trap_err $LINENO' ERR
+
+## -------------------------------------------------------------------------- ##
+## Sanity checks
+
+if [ $UID -ne 0 ] ; then
+    p_error "Script not run as root. Exiting..."
+    exit 1
+fi
+
+if test_smtp_domain && test_imap_domain ; then
+    p_info "Domain sanity check passed."
+else
+    p_error "smtp.$INPUT and/or imap $INPUT doesn't resolve to $IPSELF. Exiting..."
+    exit 1
+fi
+
+## -------------------------------------------------------------------------- ##
+# Generating certificates
+p_info "Generating certificates for $DOMAIN_SMTP and $DOMAIN_IMAP"
+certbot certonly --standalone --non-interactive --keep -d $DOMAIN_SMTP,$DOMAIN_IMAP
+if [ $? -ne 0 ] ; then
+    p_error "Failed to generate certificates. Exiting ..."
+    exit 1
+fi
+
+## -------------------------------------------------------------------------- ##
+# Postfix - SNI
+p_info "Creating a postfix digestable chain pem-file."
+# TODO: Make sure file exists and is relevant.
+# NOTE: The certbot deploy-hook only run when renewing cert.
+POSTFIX_PEM_NAME="$POSTFIX_PEM_DIR/$DOMAIN_SMTP"
+cat $LE_CERT_BASE_DIR/$DOMAIN_SMTP/privkey.pem > $POSTFIX_PEM_NAME
+cat $LE_CERT_BASE_DIR/$DOMAIN_SMTP/fullchain.pem >> $POSTFIX_PEM_NAME
+
+p_info "Adding domain '$DOMAIN_SMTP' to postfix sni table."
+grep -qE "^$DOMAIN_SMTP" $POSTFIX_SNI_MAP # Non-escaped periods are most likely ok.
+if [ $? -ne 0 ] ; then
+    # Append row to SNI-table
+    echo "$DOMAIN_SMTP $POSTFIX_PEM_NAME" >> $POSTFIX_SNI_MAP
+else
+    # Replace existing row in table (This shouldn't happen)
+    p_warn "Replacing existing row SNI-map ($POSTFIX_SNI_MAP) for domain $DOMAIN_SMTP."
+    sed -i "s|^$DOMAIN_SMTP.*|$DOMAIN_SMTP $POSTFIX_PEM_NAME|g" $POSTFIX_SNI_MAP
+fi
+
+p_info "Rebuilding SNI-table"
+postmap -F $POSTFIX_SNI_MAP # SNI DB file created in the same directory.
+
+## -------------------------------------------------------------------------- ##
+# Dovecot - SNI
+# TODO: Flesh out. There is a half-baked Python-script that do the Dovecot
+# thing.
+p_info "Dovecot SSL-file addition for copy-paste:"
+echo -e "local_name $DOMAIN_IMAP {\n    ssl_cert = </etc/letsencrypt/live/$DOMAIN_SMTP/fullchain.pem\n    ssl_key = </etc/letsencrypt/live/$DOMAIN_SMTP/privkey.pem\n}"
