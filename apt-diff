@@ -1,5 +1,10 @@
 #!/bin/bash
 ################################################################################
+
+echo "Program doesn't work properly atm. TODO: Fix listing. Exiting" 1>&2
+exit 1
+
+##
 function synopsis {
     echo "Print the difference between installed apt packages between two machines."
     echo "The machines are assumed to be reasonably similar. IE same arch and OS"
@@ -162,10 +167,10 @@ APTDIFF=$(mktemp)
 while read row ; do
     res1=$(grep -m 1 "$row" $APTLIST1)
     res2=$(grep -m 1 "$row" $APTLIST2)
-    # echo "--------------------"
-    # echo $res1
-    # echo $res2
-    # echo "--------------------"
+    #echo "--------------------"
+    #echo "'$res1'"
+    #echo "'$res2'"
+    #echo "--------------------"
     if [ "$res1" = "$res2" ]; then
         echo "$row $(echo $res1 | cut -f 3 -d ' ')" >> $APTEQUAL
     else
