@@ -36,7 +36,11 @@ function p_info {
 }
 
 # Other
+function synopsis {
+	echo "Extract Private key, CA- and Client-certificate from input PFX file."
+}
 function print_help {
+	synopsis
 	printf "Usage: pfx2pem [OPTION ...] PFXFILE\n"
 	printf "Options:\n"
 	printf "\t-r, --cacert\n\t\tOutput CA Root cert PEM file.\n"
@@ -130,13 +134,11 @@ fi
 # if [ ! $(openssl pkcs12 -in "$PFXFILE" -noout --password pass:"$PASSWORD") ] ; then
 openssl pkcs12 -in "$PFXFILE" -noout --password pass:"$PASSWORD"
 if [ $? -ne 0 ]; then
-	echo $?
 	p_error "Error opening the PFX-file. Terminating..."
 	exit 1
 fi
 
 ## Program Proper
-
 #Lots of boilerplate to make the commands below be slightly more id10t-proof. :/
 openssl pkcs12 -in $PFXFILE --password pass:"$PASSWORD" -nocerts -out "$KEYPEM" -nodes
 openssl pkcs12 -in $PFXFILE --password pass:"$PASSWORD" -nokeys -cacerts -out "$CAPEM" -nodes
