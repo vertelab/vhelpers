@@ -1,0 +1,149 @@
+#!/bin/bash
+################################################################################
+#
+#   Extract certificates from a pfx (pkcs12) file as as PEM-files.
+#
+#   The intent is to make it easier for less computer literate people to
+#	extract the files required to make their VPN's work.
+#
+################################################################################
+
+## Script params
+_VERSION="0.5.0"
+PFXFILE=""
+CAPEM="caroot.pem"
+CLIENTPEM="clientcert.pem"
+KEYPEM="privatekey.pem"
+PASSWORD=""
+
+## Helper definitions
+# Colors for prettier print
+U='\033[0;0m'
+R='\033[0;31m'
+Y='\033[1;33m'
+G='\033[0;32m'
+B='\033[0;34m'
+
+# Print Messages
+function p_error {
+	echo -e "${E}Error:${U} $1" 1>&2
+}
+function p_warn {
+        echo -e "${E}Error:${U} $1" 1>&2
+}
+function p_info {
+        echo -e "${E}Info:${U} $1"
+}
+
+# Other
+function print_help {
+	printf "Usage: pfx2pem [OPTION ...] PFXFILE\n"
+	printf "Options:\n"
+	printf "\t-r, --cacert\n\t\tOutput CA Root cert PEM file.\n"
+	printf "\t-c, --clientcert\n\t\tOutput Client cert PEM file.\n"
+	printf "\t-k, --privatekey\n\t\tOutput Private key PEM file.\n"
+	printf "\t-h, --help\n\t\tPrint help and exit.\n"
+	printf "\t-v, --version\n\t\tPrint version and exit.\n"
+}
+function print_version {
+	echo "$_VERSION"
+}
+function enter_password {
+	read -sp "Enter password to unlock the PFX file: " PASSWORD
+	echo # Newline
+	if [ "$PASSWORD" == '' ] ; then
+		p_warning "Empty password entered."
+	fi
+}
+
+## Parse input
+SHORT_ARGS='r:c:k:p:hv'
+LONG_ARGS='cacert:,clientcert:,privatekey:,password:,help,version' # Comma separated
+
+# We put the parsed options in a variable for now since we want to check getopts
+# return value. Using getopt together with set would have removed the return val
+options=$(getopt -o "$SHORT_ARGS" --long "$LONG_ARGS" -- "$@")
+
+if [ $? -ne 0 ]; then
+	echo 'getopt could not parse input. Terminating...' >&2
+	exit 1
+fi
+eval set -- "$options" # Changing positional params to getopt filtered version of them.
+unset options # We don't need the options any more.
+
+# consume 1-2 positional params as flags at the time until there are no more.
+while true
+do
+	case "$1" in
+		'-r' | '--cacert' )
+			CAPEM="$2"
+			shift 2
+			;;
+		'-c' | '--clientcert' )
+			CLIENTPEM=$2
+			shift 2
+			;;
+		'-k' | '--privatekey' )
+			KEYPEM=$2
+			shift 2
+			;;
+		'-p' | '--password' )
+			PASSWORD=$2
+			shift 2
+			;;
+		'-h' | '--help' )
+			print_help
+			exit 0
+			;;
+		'-v' | '--version' )
+			print_version
+			exit 0
+			;;
+		'--') # End of flagged params
+			shift
+			break # Break while loop
+			;; # Put here because it doesn't feel right to remove it
+		*)
+			p_error "We shouldn't get here. Terminating..."
+			exit 1
+	esac
+done
+#echo "Positional parameters:"
+#for arg in "$@"
+#do
+#	echo $arg
+#done
+PFXFILE="$1"
+## Verify input
+if [ "$PFXFILE" == '' ]; then
+	p_error "Error filename not defined. Terminating..."
+	exit 1
+fi
+if [ ! -f "$PFXFILE"  ] ; then
+	p_error "PFX file '$PFXFILE' not found. Terminating..."
+	exit 1
+fi
+
+if [ "$PASSWORD" == "" ] ; then
+	enter_password
+fi
+# if [ ! $(openssl pkcs12 -in "$PFXFILE" -noout --password pass:"$PASSWORD") ] ; then
+openssl pkcs12 -in "$PFXFILE" -noout --password pass:"$PASSWORD"
+if [ $? -ne 0 ]; then
+	echo $?
+	p_error "Error opening the PFX-file. Terminating..."
+	exit 1
+fi
+
+## Program Proper
+
+#Lots of boilerplate to make the commands below be slightly more id10t-proof. :/
+openssl pkcs12 -in $PFXFILE --password pass:"$PASSWORD" -nocerts -out "$KEYPEM" -nodes
+openssl pkcs12 -in $PFXFILE --password pass:"$PASSWORD" -nokeys -cacerts -out "$CAPEM" -nodes
+openssl pkcs12 -in $PFXFILE --password pass:"$PASSWORD" -nokeys -clcerts -out "$CLIENTPEM" -nodes
+
+##
+unset PASSWORD
+
+## End
+exit 0 # 0 = success
