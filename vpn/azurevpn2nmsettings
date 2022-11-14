@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+'''
+Extract the relevant information from an Azure VPN client install zip for
+copy paste into Network Managers settings.
+'''
+#%%
+import ipaddress
+import os
+import ssl
+import sys
+# import tempfile # zipfile can open file in zip without unpacking manually.
+import zipfile
+
+from lxml import etree
+
+#%% Helpers
+def zip2dict(mzip, dirname=None):
+    '''
+    Extracts the data in the VpnSettings.xml as a dict from the zip file
+    originally downloaded from Azure.
+    '''
+    ret = None
+    # with tempfile.TemporaryDirectory() as tdir:
+    with zipfile.ZipFile(mzip) as zfile:
+        with zfile.open("Generic\\VpnSettings.xml") as mfile: # Note Use \ even
+                                                              # on Linux. File
+                                                              # follow windows
+                                                              # conventions.
+            ret = vpnsettings2dict(mfile.read().decode("utf-8"),
+                                   from_file=False)
+    return ret
+
+def vpnsettings2dict(inxml, from_file=True):
+    # I'm sorry it started out neat. :/
+    # TODO: Sanitiy checks
+    # Assumption: XML is dictlike and with a depth of 1.
+    mdict = {}
+    if from_file:
+        settings = etree.parse(inxml)
+        for n in settings.getroot():
+            mdict[n.tag] = n.text
+        return mdict
+    else:
+        settings = etree.fromstring(inxml)
+        for n in settings:
+            mdict[n.tag] = n.text
+        return mdict
+
+# def base64topem(b64: str):
+#     '''
+#     Base64-encoded certificate to a PEM formatted str.
+#     '''
+#     if isinstance(b64, bytes):
+#         return ssl.DER_cert_to_PEM_cert(b64)
+#     # Assume it's a string
+#     return ssl.DER_cert_to_PEM_cert(b64.encode("utf-8"))
+
+#%% Client
+def print_settings(vsdict):
+    '''
+    Print the relevant settings to change.
+    '''
+    print("Type and auth")
+    print(f"\tType: {vsdict['VpnType']}")
+    print(f"\tAuthentication: {vsdict['Auth']}")
+    print("Identity")
+    print(f"\tVPN Server: {vsdict['VpnServer']}")
+    print("IPv4 Settings")
+    addr = ipaddress.IPv4Network(vsdict["Routes"])
+    print(f"\tAddress: {addr.network_address}")
+    print(f"\tNetmask: {addr.netmask}")
+    addr = ipaddress.IPv4Network(vsdict["VpnClientAddressPool"])
+    print(f"\tGateway: {addr.network_address+1}") # +1 for typical gateway.
+
+def main():
+    '''
+    Print the most relevant information for the Gnome Network settings
+    from the Azure VPN-settings zip or VpnSettings.xml file.
+    '''
+    if len(sys.argv) != 2:
+        print("Script expects a single zip or XML-file as input.",
+              file=sys.stderr)
+        sys.exit(1)
+
+    # else:
+    infile = sys.argv[1]
+    if infile.split('.')[-1] == "xml":
+        print_settings(vpnsettings2dict(infile))
+    elif infile.split('.')[-1] == "zip":
+        print_settings(zip2dict(infile))
+    else:
+        print("Scripts expects a single zip or XML-file as input.",
+              file=sys.stderr)
+        sys.exit(1)
+
+#%%
+if __name__ == "__main__":
+    main()
