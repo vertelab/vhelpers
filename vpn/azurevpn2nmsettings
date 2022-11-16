@@ -2,6 +2,9 @@
 '''
 Extract the relevant information from an Azure VPN client install zip for
 copy paste into Network Managers settings.
+
+TODO: Insert programmetically into the system. A pointer is that the network
+      manager settings are stored in /etc/NetworkManager/system-connections
 '''
 #%%
 import ipaddress
@@ -12,6 +15,18 @@ import sys
 import zipfile
 
 from lxml import etree
+
+#%% Helpers
+
+_USAGE_HELP_STR = '''
+Extract the relevant information from an Azure VPN client install zip for
+copy paste into Network Managers settings.
+
+Usage: ./azurevpn2nmsettings path/to/INPUT_ZIP_OR_XML
+
+Platform: Tested on Ubuntu 22.04
+Requires: python3
+'''
 
 #%% Helpers
 def zip2dict(mzip, dirname=None):
@@ -80,6 +95,7 @@ def main():
     if len(sys.argv) != 2:
         print("Script expects a single zip or XML-file as input.",
               file=sys.stderr)
+        print(_USAGE_HELP_STR, file=sys.stderr)
         sys.exit(1)
 
     # else:
@@ -91,6 +107,7 @@ def main():
     else:
         print("Scripts expects a single zip or XML-file as input.",
               file=sys.stderr)
+        print(_USAGE_HELP_STR, file=sys.stderr)
         sys.exit(1)
 
 #%%
