@@ -1,9 +1,6 @@
 #!/bin/bash
 ################################################################################
 
-echo "Program doesn't work properly atm. TODO: Fix listing. Exiting" 1>&2
-exit 1
-
 ##
 function synopsis {
     echo "Print the difference between installed apt packages between two machines."
@@ -135,7 +132,7 @@ fi
 ## Helper functions
 # Input: Host, port, user
 function getaptlist {
-    ssh $3@$1 -p $2 'apt list --installed 2>/dev/null | tail -n +1' | sed 's|/| |g' | sort -t ' ' -k 1,1
+    ssh $3@$1 -p $2 'apt list --installed 2>/dev/null | tail -n +1' | sed 's|/| |g' | sort -t ' ' -k 1,1 | cut -f 1,2,3 -d ' '
 }
 
 ## Do the needful
@@ -144,9 +141,12 @@ APTLIST2=$(mktemp)
 
 getaptlist $HOST1 $PORT1 $USER1 > $APTLIST1
 if [ -n "$HOST2" ] ; then
+    # Remote host 2
     getaptlist $HOST2 $PORT2 $USER2 > $APTLIST2
 else
-    apt list --installed 2>/dev/null | tail -n +1  | sed 's|/| |g' | sort -t ' ' -k 1,1 > $APTLIST2
+    # Local host 2
+    # List installed, replace / with space, sort, remove [installed]-field
+    apt list --installed 2>/dev/null | tail -n +1  | sed 's|/| |g' | sort -t ' ' -k 1,1 | cut -f 1,2,3 -d ' ' > $APTLIST2
 fi
 
 # Some test things:
