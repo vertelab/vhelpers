@@ -1,0 +1,91 @@
+#!/bin/bash
+# Remove apache-conf and associated LetsEncrypt certificates.
+#
+# Works under the assumption the apache-conf is name <first arg>.conf
+# with an SSL-conf named <first arg>-le-ssl.conf and use an associated
+# certificate named <first arg>. This is the layout if the conf and
+# certificate is generated with rcadd.
+#
+function synopsis {
+	echo "Remove domain file with the associated certificate"
+	echo "The config file is expected have been added with rcadd"
+}
+
+function usage {
+	echo "Usage: sudo $0 DOMAIN"
+	echo "Where the domain is a domain"
+}
+
+##
+
+# Colors for prettier print
+U='\033[0;0m'
+R='\033[0;31m'
+Y='\033[1;33m'
+G='\033[0;32m'
+B='\033[0;34m'
+
+## Sanity checks
+if [ $# -eq 0 ]; then
+	echo -e "$R Error:$U Script expect a single configuration as input argument. Exiting" 1>&2
+        usage 1>&2
+	exit 1
+fi
+
+
+if [ $UID -ne 0 ]; then
+	echo -e "$R Error:$U Script need to be run as root. Exiting" 1>&2
+	usage 1>&2
+	exit 1
+fi
+
+## Basic params 
+
+BASECONF=$1.conf
+SSLCONF="$1"-le-ssl.conf
+
+#
+if [ ! -e /etc/apache2/sites-available/$BASECONF ] ; then
+	echo -e "$R Error:$U Base configuration file, $BASECONF, doesn't exist. Exiting ..." 1>&2
+	exit 1
+fi
+
+# SSL conf exist?
+
+if [ -e /etc/apache2/sites-enabled/$SSLCONF ] ; then
+	echo "Disabling SSL-conf $SSLCONF"
+	a2dissite $SSLCONF
+else
+        echo -e "$Y Warning:$U Enabled SSL-configuration $SSL-file missing."
+fi
+if [ -e /etc/apache2/sites-enabled/$BASECONF ] ; then
+        echo "Disabling conf $BASECONF"
+        a2dissite $BASECONF
+else
+	echo -e "$Y Warning:$U Enabled configuration file missing."
+fi
+if [ -e /etc/apache2/sites-available/$SSLCONF ] ; then
+        # Non-commented SSL-file, Assumption 1 active per file and key in same folder.
+        CERTNAME=$(grep -rE "^\s*SSLCertificateFile" /etc/apache2/sites-available/$SSLCONF | grep -oE "$1(-[0-9]{4}){0,1}")
+        echo "SSL-conf file using certificate: $CERTNAME"
+        if [ $(grep -r "$CERTNAME/" "/etc/apache2/sites-available" | wc -l) -eq 2 ] ; then # Trailing / on certname force search for the cert-folder
+                echo "Removing certificate $CERTNAME"
+                certbot delete --non-interactive --cert-name $CERTNAME
+        else
+                echo -e "$Y Warning:$U Certificate $CERTNAME not mentioned exactly two times among the apache2 configuration files."
+                echo "Find occurances with for example: grep -rn $CERTNAME /etc/apache2/sites-available"
+                echo "Wont remove the certificate"
+                echo "Remove excess certificates manually with: sudo certbot delete"
+        fi
+else
+        echo -e "$Y Warning:$U SSL-configuration $SSL-file missing. This can be considered to be unusual."
+fi
+
+echo "Removing Apache-configuration files"
+rm /etc/apache2/sites-available/$BASECONF
+rm /etc/apache2/sites-available/$SSLCONF
+
+service apache2 restart
+echo "Done"
+
+exit 0

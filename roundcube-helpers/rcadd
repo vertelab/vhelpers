@@ -1,0 +1,91 @@
+#!/bin/bash
+# Add a domain pointing at the local roundcube site.
+
+function synopsis {
+	echo "Add domain to roundcube on bart"
+	echo "Generates an Apache2 config file and attempts to"
+	echo "retrieve a certificate from LetsEncrypt with certbot."
+}
+
+function usage {
+	echo "Usage: sudo $0 DOMAIN"
+	echo "Where DOMAIN comma delimited list of domains."
+}
+
+##
+
+# Colors for prettier print
+U='\033[0;0m'
+R='\033[0;31m'
+Y='\033[1;33m'
+G='\033[0;32m'
+B='\033[0;34m'
+
+## Sanity checks
+if [ $# -eq 0 ]; then
+	echo "Script expect a single domain as input argument. Exiting" 1>&2
+        usage 1>&2
+	exit 1
+fi
+
+
+if [ $UID -ne 0 ]; then
+	echo "Script need to be run as root. Exiting" 1>&2
+	usage 1>&2
+	exit 1
+fi
+
+## Doing things
+
+SNAMEPATTERN="MAINHOSTNAME"
+ALIASPATTERN="HOSTALIAS"
+TEMPLATECONF="/etc/apache2/roundcube_template.conf"
+
+MAINNAME="$(echo $1 | cut -f 1 -d ',')"
+
+TARGETCONF="/etc/apache2/sites-available/$MAINNAME.conf" # Full path
+SSLCONF="/etc/apache2/sites-available/$MAINNAME-le-ssl.conf" # Full path
+if [ -e $TARGETCONF ]; then
+	echo -e "$R Error:$U Target configuration file, $TARGETCONF, already exist." 1>&2
+	exit 1
+fi
+
+#TEMPFILE=$(mktemp)
+
+echo "Creating config file: $TARGETCONF"
+sed "s|$SNAMEPATTERN|$MAINNAME|g;/^.*$ALIASPATTERN/d" $TEMPLATECONF > $TARGETCONF
+
+echo "Enabling configuration file"
+a2ensite $(basename $TARGETCONF)
+
+echo "Running configuration test."
+if ! $(apachectl configtest) ; then
+ 	echo -e "$R Error$U: Configuration test failed. Reverting changes." 1>&2
+	a2dissite $(basename $TARGETCONF)
+	rm $TARGETCONF
+	service apache2 restart
+	exit 2
+fi
+
+echo "Generating certificates"
+#certbot --apache --redirect --non-interactive --keep -d "$1"
+certbot --apache --redirect --non-interactive --keep -d $(echo $1 | sed 's|,| -d |g') # 'a.b.c,d.e.f' -> 'a.b.c -d d.e.f'
+if [ $? -ne 0 ] ; then
+# if ! $(certbot --apache --redirect --non-interactive --keep -d "$1") ; then # This row cause much trouble. :/
+        echo -e "$R Error$U: While generating certificate. Reverting changes." 1>&2
+	a2dissite $(basename $TARGETCONF)
+        rm $TARGETCONF
+	if [ -e $SSLCONF ] ; then
+		a2dissite $(basename $SSLCONF)
+		rm $SSLCONF
+	fi
+	service apache2 restart
+        exit 2
+fi
+
+
+echo "Restarting Apache2"
+service apache2 restart
+
+echo "Done!"
+exit 0
