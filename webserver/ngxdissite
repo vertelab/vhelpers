@@ -58,7 +58,7 @@ fi
 # Do the needful
 rm $ENROOT/$INPUT
 
-p_info "Symlink from $AVROOT/$INPUT from $ENROOT/$INPUT removed."
+p_info "Symlink from $ENROOT/$INPUT to $AVROOT/$INPUT removed."
 p_info "Restart nginx for the change to take effect. Eg: sudo service nginx restart"
 
 exit 0

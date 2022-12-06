@@ -3,8 +3,6 @@
 Prototype fetching CVE data from NIST's NVD. The NIST JSON API contain the
 vulnerability score. MITRE's / cve.org's standard database does not.
 
-
-
 Additional reading
 ==================
 https://cve.org
@@ -47,7 +45,7 @@ def get_cve_list(lastModStartDate=None, lastModEndDate=None):
     else:
         enddate = datetime.datetime.utcnow()
     if enddate < startdate:
-        raise ValueError("End date can't be old than start date.")
+        raise ValueError("End date can't be older than start date.")
 
     response = requests.get(BASE_URL_CVE, params={'lastModStartDate':startdate.isoformat(),
     'lastModEndDate':enddate.isoformat()})
