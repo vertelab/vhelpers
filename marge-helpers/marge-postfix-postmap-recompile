@@ -1,0 +1,19 @@
+#!/bin/bash
+# Postfix's SNI table need to be recompiled with postmap
+
+# Paths taken from the marge-cert-helper-add script.
+POSTFIX_SNI_MAP="/etc/postfix/sni.map"
+
+# Sanity check
+
+if [ "$UID" -ne 0 ] ; then
+	echo "Not running as root"
+	exit 1
+fi
+
+# Do the needful
+
+echo "Rebuilding SNI-table"
+postmap -F $POSTFIX_SNI_MAP
+
+exit 0 # Success, every time

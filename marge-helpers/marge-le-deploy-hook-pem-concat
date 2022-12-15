@@ -1,0 +1,14 @@
+#!/bin/bash
+# Postfix prefers or requires pem-files with keys in order:
+# privkey, cert, chain <-> privkey, fullchain
+
+# Paths from marge-cert-helper-add
+#POSTFIX_PEM="postfix_chain.pem"
+POSTFIX_PEM="$(basename $RENEWED_LINEAGE)"
+OUTPUT="/etc/postfix/postfix_pem/$POSTFIX_PEM"
+
+cat "$RENEWED_LINEAGE"/privkey.pem > $OUTPUT #"$RENEWED_LINEAGE/$POSTFIX_PEM"
+cat "$RENEWED_LINEAGE"/fullchain.pem >> $OUTPUT
+echo "Concatenated pem-file for postfix at: $OUTPUT"
+
+exit 0 # Success, every time
