@@ -5,9 +5,9 @@
 #
 # Not a full cert test like https://github.com/drwetter/testssl.sh
 
-INPUT=$1
-DOMAIN_SMTP="smtp.$INPUT"
-DOMAIN_IMAP="imap.$INPUT"
+DOMAIN=$1
+DOMAIN_SMTP="smtp.$DOMAIN"
+DOMAIN_IMAP="imap.$DOMAIN"
 
 DOMAIN_MARGE=marge.vertel.se #"$(hostname -f)"
 IPMARGE="$(dig +short $DOMAIN_MARGE)"
@@ -74,6 +74,43 @@ function test_imap_domain {
     fi
     return 0
 }
+function test_mx_record {
+    _TESTPATTERN="($IPMARGE|$DOMAIN_MARGE|$DOMAIN_SMTP|smtp.vertel.se)" # Just som reasonable patterns.
+    _MATCH="$(dig +short MX $DOMAIN | grep -oE $_TESTPATTERN)"
+    if [ -z "$_MATCH" ] ; then
+        p_error "No MX record for $DOMAIN match Marge."
+        return 1
+    fi
+    return 0
+}
+
+function test_spf1_record {
+    # OBSVERVE: This function runs tests until successful. Not until failure.
+    _TESTPATTERN="(ip4:($IPMARGE)|include:($DOMAIN_SMTP|smtp.vertel.se))" # Just som reasonable patterns.
+
+    _mxexist=$1
+
+    _SPF1="$(dig +short TXT $DOMAIN | grep -i \"v=spf1)"
+    if [ -z "$_SPF1" ] ; then
+        p_error "No spf1 record found."
+        return 1
+    else
+        # TODO: Add warning or error if -all is not added or if +all is.
+        # Test if explicitly added
+        # Return immediately if success, no further tests needed.
+        _RES="$(echo $_SPF1 | grep -oE "$_TESTPATTERN")"
+        if [ -n $_RES ] ; then
+            return 0
+        fi
+        # +mx is applicable to DOMAIN
+        _RES="$(echo $_SPF1 | grep -oE "+mx")"
+        if [ "$mxexist" -eq 0 ] && [ -n $_RES ] ; then
+            return 0
+        fi
+    fi
+    p_error "spf1-record \"$_SPF1\" doesn't allow Marge to send mail for $DOMAIN"
+    return 1
+}
 
 function test_cert_chain {
 	# Fails on expired certs.
@@ -114,7 +151,7 @@ function test_domain_in_cert_san {
 # 4. Cert is valid: Date and DNS
 # 5. Domains can connect via SSL
 
-p_info "Evaluating domain's IP-addresses"
+p_info "Evaluating domain IP-addresses"
 
 p_test "$DOMAIN_SMTP resolves to $IPMARGE"
 if test_smtp_domain 2>&1 > /dev/null ; then
@@ -130,6 +167,22 @@ if test_imap_domain 2>&1 > /dev/null ; then
 else
 	p_failure
 	exit_if_failure
+fi
+
+p_test "$DOMAIN has $IPMARGE, $DOMAIN_MARGE or $DOMAIN_SMTP as MX-record"
+if test_mx_record ; then
+    TRES=$? # Result is useful for other tests.
+    p_success
+else
+    TRES=$? # Result is useful for other tests.
+    p_failure
+fi
+
+p_test "spf1-record allow Marge to send mail for $DOMAIN"
+if test_spf1_record $TRES ; then
+    p_success
+else
+    p_error
 fi
 
 ## -------------------------------------------------------------------------- ##
