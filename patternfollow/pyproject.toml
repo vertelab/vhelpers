@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "filterfollow_vertel"
+version = "0.0.1"
+authors = [
+  { name="Simon Rundstedt", email="simon.rundstedt@vertel.se" },
+]
+description = "A small program for following files such as log files."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "click >= 8.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/srund/packaging_srund_test"
+"Bug Tracker" = "https://github.com/srund/packaging_srund_test/issues"
+
+[tool.tox]
+legacy_tox_ini = '''
+# content of: tox.ini , put in same dir as setup.py
+[tox]
+isolated_build = True
+envlist = py310
+[testenv]
+# install testing framework
+## ... or install anything else you might need here
+# deps = pytest
+# run the tests
+# ... or run any other command line tool you need to run here
+
+commands =
+    #pylint --fail-under 7.5 src/filterfollow
+    python3 -m unittest discover .
+'''
+[tool.pylint.'MASTER']
+fail-under = 8

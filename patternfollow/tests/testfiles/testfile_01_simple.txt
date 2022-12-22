@@ -1,0 +1,7 @@
+PATTERN1
+PATTERN2
+nonpattern
+PATTERN1
+nonpattern
+nonpattern
+PATTERN2

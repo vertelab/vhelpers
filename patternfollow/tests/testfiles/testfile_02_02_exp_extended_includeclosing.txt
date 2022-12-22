@@ -1,0 +1,6 @@
+PATTERN1
+non-pattern - Expected to belong to PATTERN1
+non-pattern - and is collected.
+PATTERN2 - Not matching
+PATTERN1
+PATTERN2
