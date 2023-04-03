@@ -143,3 +143,5 @@ postmap -F $POSTFIX_SNI_MAP # SNI DB file created in the same directory.
 # thing.
 p_info "Dovecot SSL-file addition for copy-paste:"
 echo -e "local_name $DOMAIN_IMAP {\n    ssl_cert = </etc/letsencrypt/live/$DOMAIN_SMTP/fullchain.pem\n    ssl_key = </etc/letsencrypt/live/$DOMAIN_SMTP/privkey.pem\n}"
+echo -e "local_name $DOMAIN_IMAP {\n    ssl_cert = </etc/letsencrypt/live/$DOMAIN_SMTP/fullchain.pem \n    ssl_key = </etc/letsencrypt/live/$DOMAIN_SMTP/privkey.pem \n}" > /etc/dovecot/conf.d/10-ssl-$INPUT.conf
+echo "created new file for dovecot /etc/dovecot/conf.d/10-ssl-$INPUT.conf"
